@@ -7,11 +7,10 @@ import pickle
 # Page config
 # -------------------------------------------------
 st.set_page_config(page_title="Customer Churn Predictor", layout="wide")
-
 st.title("📊 Customer Churn Prediction App")
 
 # -------------------------------------------------
-# Load Model (SAFE)
+# Load Model
 # -------------------------------------------------
 MODEL_PATH = "churn_prediction_model (1).pkl"
 
@@ -25,7 +24,7 @@ try:
     st.success("✅ Model loaded successfully")
 except Exception as e:
     st.error(f"❌ Model loading failed: {e}")
-    model = None
+    st.stop()
 
 # -------------------------------------------------
 # Sidebar Inputs
@@ -44,11 +43,12 @@ is_active = st.sidebar.selectbox("Is Active Member?", ["Yes", "No"])
 salary = st.sidebar.number_input("Estimated Salary", 0.0, 200000.0, 50000.0)
 
 # -------------------------------------------------
-# Prepare Input Data
+# Predict Button
 # -------------------------------------------------
-if st.sidebar.button("Predict Churn") and model is not None:
+if st.sidebar.button("Predict Churn"):
 
-    input_data = {
+    # Base features (8)
+    df = pd.DataFrame([{
         "CreditScore": credit_score,
         "Age": age,
         "Tenure": tenure,
@@ -58,44 +58,13 @@ if st.sidebar.button("Predict Churn") and model is not None:
         "IsActiveMember": 1 if is_active == "Yes" else 0,
         "EstimatedSalary": salary,
         "Gender": 1 if gender == "Male" else 0
-    }
+    }])
 
-    df = pd.DataFrame([input_data])
-
-    # Geography Encoding (IMPORTANT)
-    df["Geography_France"] = 1 if geography == "France" else 0
+    # Geography encoding (ONLY 2 columns to make total = 11)
     df["Geography_Germany"] = 1 if geography == "Germany" else 0
     df["Geography_Spain"] = 1 if geography == "Spain" else 0
+    # France = both 0 (baseline)
 
     # -------------------------------------------------
-    # Align features with model
-    # -------------------------------------------------
-    if hasattr(model, "feature_names_in_"):
-        for col in model.feature_names_in_:
-            if col not in df.columns:
-                df[col] = 0
-        df = df[model.feature_names_in_]
-
-    # -------------------------------------------------
-    # Prediction
-    # -------------------------------------------------
-    try:
-        if hasattr(model, "predict_proba"):
-            prob = model.predict_proba(df)[0][1]
-        else:
-            prob = model.predict(df)[0]
-
-        prediction = "🔴 Customer Will Churn" if prob >= 0.5 else "🟢 Customer Will Stay"
-
-        st.subheader("Prediction Result")
-        st.success(prediction)
-        st.info(f"Churn Probability: **{prob:.2f}**")
-
-    except Exception as e:
-        st.error(f"Prediction error: {e}")
-
-# -------------------------------------------------
-# Footer
-# -------------------------------------------------
-st.markdown("---")
-st.caption("Churn Prediction App | Streamlit + ML")
+    # FORCE correct shape for Keras
+    # ----------------------------------------------
